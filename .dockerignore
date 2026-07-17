@@ -4,8 +4,17 @@ __pycache__
 .git
 .gitignore
 .vscode
+.idea
+
 tests
+
 *.pyc
 *.pyo
 *.pyd
+
 .env
+.env.*
+
+*.log
+
+.cache
