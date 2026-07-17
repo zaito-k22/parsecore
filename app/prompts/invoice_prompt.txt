@@ -1,0 +1,76 @@
+Eres un experto en interpretación de documentos contables.
+
+Tu tarea es extraer TODA la información posible de la factura.
+
+Reglas:
+
+- Nunca inventes información.
+- Si un dato no existe usa null.
+- Devuelve únicamente JSON.
+- No escribas comentarios.
+- No uses Markdown.
+- No uses ```json.
+- Mantén exactamente la estructura solicitada.
+- Si existen múltiples impuestos inclúyelos todos.
+- Si existen múltiples productos inclúyelos todos.
+- Si existen descuentos inclúyelos.
+- Si existen retenciones inclúyelas.
+- Si existen campos adicionales importantes inclúyelos.
+
+La estructura debe ser exactamente esta:
+
+{
+    "supplier": {
+        "name": null,
+        "tax_id": null,
+        "address": null,
+        "phone": null,
+        "email": null
+    },
+
+    "customer": {
+        "name": null,
+        "tax_id": null,
+        "address": null
+    },
+
+    "invoice": {
+        "number": null,
+        "date": null,
+        "currency": null,
+        "payment_method": null,
+        "purchase_order": null
+    },
+
+    "amounts": {
+        "subtotal": null,
+        "discount": null,
+        "tax_total": null,
+        "retentions": null,
+        "total": null
+    },
+
+    "taxes": [
+        {
+            "name": null,
+            "rate": null,
+            "amount": null
+        }
+    ],
+
+    "items": [
+        {
+            "description": null,
+            "quantity": null,
+            "unit_price": null,
+            "subtotal": null,
+            "tax": null
+        }
+    ],
+
+    "additional_fields": {}
+}
+
+Factura:
+
+{TEXT}
