@@ -1,47 +1,35 @@
-from pathlib import Path
-import shutil
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from sqlalchemy.orm import Session
 
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from app.db.session import get_db
+from app.services.invoice.service import InvoiceService
 
-from app.services.ocr.service import ocr_service
-from app.services.llm.service import llm_service
+router = APIRouter(
+    prefix="/invoice",
+    tags=["Invoice"],
+)
 
-router = APIRouter(prefix="/invoice", tags=["Invoice"])
 
-
-@router.post("/process")
-async def process_invoice(file: UploadFile = File(...)):
+@router.post("")
+async def upload_invoice(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
     """
-    Procesa una factura (PDF o imagen) y devuelve la información extraída.
+    Procesa una factura,
+    la guarda en PostgreSQL
+    y devuelve el JSON generado.
     """
-
-    temp_dir = Path("temp")
-    temp_dir.mkdir(exist_ok=True)
-
-    temp_file = temp_dir / file.filename
 
     try:
 
-        # Guardar el archivo temporalmente
-        with open(temp_file, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        service = InvoiceService(db)
 
-        # OCR
-        ocr_result = ocr_service.extract_text(str(temp_file))
-
-        # LLM
-        invoice = llm_service.extract_invoice(
-            ocr_result["text"]
-        )
-
-        return invoice
+        return await service.process(file)
 
     except Exception as e:
+
         raise HTTPException(
             status_code=500,
-            detail=str(e)
+            detail=str(e),
         )
-
-    finally:
-        if temp_file.exists():
-            temp_file.unlink()

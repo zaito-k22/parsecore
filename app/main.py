@@ -1,14 +1,12 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
 
-from app.services.invoice.service import InvoiceService
+from app.api.invoice import router as invoice_router
 
 app = FastAPI(
     title="Facturas AI",
     description="API para extracción inteligente de información de facturas.",
     version="0.1.0",
 )
-
-invoice_service = InvoiceService()
 
 
 @app.get("/")
@@ -20,6 +18,4 @@ async def root():
     }
 
 
-@app.post("/invoice")
-async def upload_invoice(file: UploadFile = File(...)):
-    return await invoice_service.process(file)
+app.include_router(invoice_router)
