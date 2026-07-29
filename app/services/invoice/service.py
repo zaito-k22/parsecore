@@ -5,6 +5,7 @@ import tempfile
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
+from app.exceptions.invoice import InvoiceNotFound
 from app.models.invoice import Invoice
 from app.repositories.invoice_repository import InvoiceRepository
 from app.services.llm.service import llm_service
@@ -25,11 +26,11 @@ class InvoiceService:
         if isinstance(value, (int, float)):
             return float(value)
 
-        value = (
-            str(value)
-            .replace(".", "")
-            .replace(",", ".")
-        )
+        value = str(value).strip()
+
+        if "," in value:
+            value = value.replace(".", "")
+            value = value.replace(",", ".")
 
         try:
             return float(value)
@@ -92,7 +93,6 @@ class InvoiceService:
 
                 original_filename=file.filename,
 
-                # Estos se llenarán cuando n8n procese Drive
                 drive_file_id=None,
                 drive_folder=None,
 
@@ -117,3 +117,57 @@ class InvoiceService:
 
             if os.path.exists(temp_path):
                 os.remove(temp_path)
+
+    def get(
+        self,
+        invoice_id: int,
+    ):
+
+        invoice = self.repository.get_by_id(invoice_id)
+
+        if invoice is None:
+            raise InvoiceNotFound(invoice_id)
+
+        return invoice
+
+    def list(self):
+
+        return self.repository.list()
+
+    def update(
+        self,
+        invoice_id: int,
+        status: str | None,
+        drive_file_id: str | None,
+        drive_folder: str | None,
+    ):
+
+        invoice = self.repository.get_by_id(invoice_id)
+
+        if invoice is None:
+            raise InvoiceNotFound(invoice_id)
+
+        if status is not None:
+            invoice.status = status
+
+        if drive_file_id is not None:
+            invoice.drive_file_id = drive_file_id
+
+        if drive_folder is not None:
+            invoice.drive_folder = drive_folder
+
+        return self.repository.update(invoice)
+
+    def delete(
+        self,
+        invoice_id: int,
+    ):
+
+        invoice = self.repository.get_by_id(invoice_id)
+
+        if invoice is None:
+            raise InvoiceNotFound(invoice_id)
+
+        self.repository.delete(invoice)
+
+        return True
