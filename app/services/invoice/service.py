@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import tempfile
 
 from fastapi import UploadFile
@@ -28,20 +29,20 @@ class InvoiceService:
 
         value = str(value).strip()
 
+        # Eliminar símbolos de moneda y cualquier otro carácter no numérico
+        value = re.sub(r"[^\d,.-]", "", value)
+
         if "," in value:
             value = value.replace(".", "")
             value = value.replace(",", ".")
 
         try:
             return float(value)
+
         except ValueError:
             return None
 
     async def process(self, file: UploadFile):
-
-        # --------------------------
-        # Guardar archivo temporal
-        # --------------------------
 
         suffix = os.path.splitext(file.filename)[1]
 
@@ -70,6 +71,10 @@ class InvoiceService:
             )
 
             print(document)
+
+            # TEMPORAL: verificar las claves que devuelve el LLM
+            print("\n========== AMOUNTS ==========\n")
+            print(document.get("amounts"))
 
             invoice = Invoice(
 
