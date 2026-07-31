@@ -3,14 +3,17 @@ import os
 import re
 import tempfile
 
+
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
+
 
 from app.exceptions.invoice import InvoiceNotFound
 from app.models.invoice import Invoice
 from app.repositories.invoice_repository import InvoiceRepository
 from app.services.llm.service import llm_service
 from app.services.ocr.service import ocr_service
+from app.integrations.siigo.service import SiigoService
 
 
 class InvoiceService:
@@ -71,6 +74,22 @@ class InvoiceService:
             )
 
             print(document)
+
+            print("\n========== SIIGO ==========\n")
+
+            siigo_service = SiigoService()
+
+            purchase_invoice = siigo_service.build_purchase_invoice(
+                document,
+            )
+
+            print(
+                json.dumps(
+                    purchase_invoice.model_dump(),
+                    indent=4,
+                    ensure_ascii=False,
+                )
+            )
 
             # TEMPORAL: verificar las claves que devuelve el LLM
             print("\n========== AMOUNTS ==========\n")
