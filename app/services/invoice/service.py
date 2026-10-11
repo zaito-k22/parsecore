@@ -1,19 +1,21 @@
+import asyncio
 import json
+import logging
 import os
-import re
 import tempfile
-
+import time
 
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
-
 
 from app.exceptions.invoice import InvoiceNotFound
 from app.models.invoice import Invoice
 from app.repositories.invoice_repository import InvoiceRepository
 from app.services.llm.service import llm_service
+from app.services.normalization.service import to_invoice_fields
 from app.services.ocr.service import ocr_service
-from app.integrations.siigo.service import SiigoService
+
+logger = logging.getLogger(__name__)
 
 
 class InvoiceService:
@@ -21,110 +23,67 @@ class InvoiceService:
     def __init__(self, db: Session):
         self.repository = InvoiceRepository(db)
 
-    @staticmethod
-    def _to_float(value):
+    def _extract(self, path: str) -> tuple[dict, int]:
+        """
+        OCR + LLM. Es código síncrono y pesado: se ejecuta en un hilo
+        (ver process) para no bloquear el event loop de FastAPI.
+        """
 
-        if value in (None, ""):
-            return None
+        ocr_result = ocr_service.extract_text(path)
 
-        if isinstance(value, (int, float)):
-            return float(value)
+        text = ocr_result["text"]
 
-        value = str(value).strip()
+        logger.info(
+            "OCR listo: %s páginas, %s caracteres",
+            ocr_result.get("pages"),
+            len(text),
+        )
 
-        # Eliminar símbolos de moneda y cualquier otro carácter no numérico
-        value = re.sub(r"[^\d,.-]", "", value)
+        document = llm_service.extract_document(text)
 
-        if "," in value:
-            value = value.replace(".", "")
-            value = value.replace(",", ".")
-
-        try:
-            return float(value)
-
-        except ValueError:
-            return None
+        return document, len(text)
 
     async def process(self, file: UploadFile):
 
-        suffix = os.path.splitext(file.filename)[1]
+        filename = file.filename or "unnamed"
+
+        suffix = os.path.splitext(filename)[1]
+
+        content = await file.read()
 
         with tempfile.NamedTemporaryFile(
             delete=False,
             suffix=suffix,
         ) as temp_file:
 
-            content = await file.read()
             temp_file.write(content)
 
             temp_path = temp_file.name
 
         try:
 
-            print("\n========== OCR ==========\n")
+            started = time.perf_counter()
 
-            ocr_result = ocr_service.extract_text(temp_path)
-
-            print(ocr_result["text"])
-
-            print("\n========== LLM ==========\n")
-
-            document = llm_service.extract_document(
-                ocr_result["text"]
+            document, _ = await asyncio.to_thread(
+                self._extract,
+                temp_path,
             )
 
-            print(document)
-
-            print("\n========== SIIGO ==========\n")
-
-            siigo_service = SiigoService()
-
-            purchase_invoice = siigo_service.build_purchase_invoice(
-                document,
+            logger.info(
+                "Extracción completada en %.1fs (%s)",
+                time.perf_counter() - started,
+                filename,
             )
-
-            print(
-                json.dumps(
-                    purchase_invoice.model_dump(),
-                    indent=4,
-                    ensure_ascii=False,
-                )
-            )
-
-            # TEMPORAL: verificar las claves que devuelve el LLM
-            print("\n========== AMOUNTS ==========\n")
-            print(document.get("amounts"))
 
             invoice = Invoice(
-
-                supplier_name=document["supplier"].get("name"),
-                supplier_nit=document["supplier"].get("tax_id"),
-
-                invoice_number=document["invoice"].get("number"),
-                issue_date=document["invoice"].get("date"),
-
-                subtotal=self._to_float(
-                    document["amounts"].get("subtotal")
-                ),
-
-                tax=self._to_float(
-                    document["amounts"].get("tax_total")
-                ),
-
-                total=self._to_float(
-                    document["amounts"].get("total")
-                ),
-
-                original_filename=file.filename,
-
+                **to_invoice_fields(document),
+                original_filename=filename,
                 drive_file_id=None,
                 drive_folder=None,
-
                 raw_json=json.dumps(
                     document,
                     ensure_ascii=False,
                 ),
-
                 status="processed",
             )
 
@@ -133,7 +92,7 @@ class InvoiceService:
             return {
                 "success": True,
                 "invoice_id": invoice.id,
-                "filename": file.filename,
+                "filename": filename,
                 "invoice": document,
             }
 

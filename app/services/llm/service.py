@@ -1,45 +1,49 @@
-import json
-import os
+import logging
 from pathlib import Path
 
 from ollama import Client
 
+from app.core.config import settings
+from app.services.llm.parsing import parse_llm_json
+
+logger = logging.getLogger(__name__)
+
+PROMPT_PATH = (
+    Path(__file__).parents[2] / "prompts" / "invoice_prompt.txt"
+)
+
 
 class LLMService:
     def __init__(self):
-        print("Inicializando Ollama...")
-
-        ollama_host = os.getenv(
-            "OLLAMA_HOST",
-            "http://localhost:11434"
+        logger.info(
+            "Inicializando Ollama (host=%s, modelo=%s)",
+            settings.ollama_host,
+            settings.ollama_model,
         )
 
-        self.client = Client(host=ollama_host)
+        self.client = Client(
+            host=settings.ollama_host,
+            timeout=settings.ollama_timeout,
+        )
 
-        self.model = "gemma3:4b"
+        self.model = settings.ollama_model
 
-    def extract_document(self, text: str):
+    def extract_document(self, text: str) -> dict:
         """
-        Convierte el texto obtenido por el OCR
-        en un documento estructurado.
-        """
-
-        prompt = self._build_prompt(text)
-
-        response = self._chat(prompt)
-
-        response = self._clean_json(response)
-
-        return json.loads(response)
-
-    def _chat(self, prompt: str):
-        """
-        Envía el prompt al modelo.
+        Convierte el texto obtenido por el OCR en un documento
+        estructurado. Lanza LLMExtractionError si la respuesta
+        no es utilizable.
         """
 
+        response = self._chat(self._build_prompt(text))
+
+        return parse_llm_json(response)
+
+    def _chat(self, prompt: str) -> str:
         response = self.client.chat(
             model=self.model,
             format="json",
+            options={"temperature": 0},
             messages=[
                 {
                     "role": "user",
@@ -50,35 +54,8 @@ class LLMService:
 
         return response["message"]["content"]
 
-    def _clean_json(self, response: str):
-        """
-        Limpia la respuesta del modelo
-        en caso de que venga envuelta
-        en Markdown.
-        """
-
-        return (
-            response
-            .replace("```json", "")
-            .replace("```", "")
-            .strip()
-        )
-
-    def _build_prompt(self, text: str):
-        """
-        Carga la plantilla del prompt
-        y reemplaza {TEXT}.
-        """
-
-        prompt_path = (
-            Path(__file__).parents[2]
-            / "prompts"
-            / "invoice_prompt.txt"
-        )
-
-        prompt = prompt_path.read_text(
-            encoding="utf-8"
-        )
+    def _build_prompt(self, text: str) -> str:
+        prompt = PROMPT_PATH.read_text(encoding="utf-8")
 
         return prompt.replace("{TEXT}", text)
 

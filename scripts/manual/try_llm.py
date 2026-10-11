@@ -1,6 +1,6 @@
 from app.services.llm.service import llm_service
 
-respuesta = llm_service.chat(
+respuesta = llm_service._chat(
     "Di únicamente la palabra 'Hola'."
 )
 

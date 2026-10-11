@@ -4,6 +4,7 @@ os.environ["FLAGS_use_mkldnn"] = "0"
 os.environ["PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT"] = "0"
 
 import io
+import logging
 from pathlib import Path
 
 import fitz
@@ -11,9 +12,14 @@ import numpy as np
 from PIL import Image
 from paddleocr import PaddleOCR
 
+from app.exceptions.invoice import UnsupportedFileFormat
+
+logger = logging.getLogger(__name__)
+
+
 class OCRService:
     def __init__(self):
-        print("Inicializando PaddleOCR...")
+        logger.info("Inicializando PaddleOCR...")
 
         self.ocr = PaddleOCR(
             lang="es",
@@ -35,7 +41,7 @@ class OCRService:
         if extension == ".pdf":
             return self._extract_from_pdf(file_path)
 
-        raise ValueError(f"Formato no soportado: {extension}")
+        raise UnsupportedFileFormat(extension)
 
     def _extract_from_image(self, image_path: str):
         """
@@ -60,7 +66,7 @@ class OCRService:
         try:
             for page_number, page in enumerate(document, start=1):
 
-                print(f"[OCR] Procesando página {page_number}/{total_pages}")
+                logger.info("OCR página %s/%s", page_number, total_pages)
 
                 # Renderizar la página a 300 DPI
                 pix = page.get_pixmap(dpi=300)
