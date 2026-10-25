@@ -1,21 +1,34 @@
+import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import URL, make_url
 
-from app.core.config import settings
+import app.models  # noqa: F401  (registra los modelos en Base.metadata)
 from app.db.base import Base
-
-import app.models
+from app.db.testing import TEST_DATABASE_URL_ENV, require_safe_test_database_url
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
 
-# Use the application's database URL
+
+def _get_database_url() -> URL:
+    test_database_url = os.environ.get(TEST_DATABASE_URL_ENV)
+
+    if test_database_url:
+        return require_safe_test_database_url(test_database_url)
+
+    from app.core.config import settings
+
+    return make_url(settings.database_url)
+
+
+_database_url = _get_database_url()
 config.set_main_option(
     "sqlalchemy.url",
-    settings.database_url,
+    _database_url.render_as_string(hide_password=True).replace("%", "%%"),
 )
 
 # Interpret the config file for Python logging.
@@ -45,8 +58,11 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
 
+    configuration = config.get_section(config.config_ini_section, {})
+    configuration["sqlalchemy.url"] = _database_url
+
     connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
+        configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )

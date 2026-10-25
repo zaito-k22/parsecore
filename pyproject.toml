@@ -25,4 +25,34 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.File",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Las revisiones de Alembic son archivos generados y no deben editarse.
+"app/db/migrations/versions/*.py" = ["I001", "UP007", "UP035"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not db and not integration'"
+markers = [
+    "db: requiere una base PostgreSQL de pruebas",
+    "integration: requiere OCR/Ollama reales",
 ]
