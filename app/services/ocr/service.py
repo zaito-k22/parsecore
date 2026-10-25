@@ -9,8 +9,8 @@ from pathlib import Path
 
 import fitz
 import numpy as np
-from PIL import Image
 from paddleocr import PaddleOCR
+from PIL import Image
 
 from app.exceptions.invoice import UnsupportedFileFormat
 

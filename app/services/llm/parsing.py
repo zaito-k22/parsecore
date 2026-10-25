@@ -23,12 +23,12 @@ def parse_llm_json(raw: str) -> dict:
     try:
         data = json.loads(text)
 
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
         start = text.find("{")
         end = text.rfind("}")
 
         if start == -1 or end <= start:
-            raise LLMExtractionError("La respuesta no contiene JSON")
+            raise LLMExtractionError("La respuesta no contiene JSON") from exc
 
         try:
             data = json.loads(text[start : end + 1])
