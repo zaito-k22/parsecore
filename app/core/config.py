@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     ollama_model: str = "gemma3:4b"
     ollama_timeout: float = 120.0
 
+    storage_path: str = "/data/uploads"
+
     log_level: str = "INFO"
 
     model_config = SettingsConfigDict(

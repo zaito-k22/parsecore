@@ -40,6 +40,7 @@ Variables principales:
 
 - `DATABASE_URL`
 - `OLLAMA_HOST`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT`
+- `STORAGE_PATH` (por defecto `/data/uploads`)
 - `LOG_LEVEL`
 
 ## PostgreSQL para pruebas
@@ -140,11 +141,15 @@ Ejecutar las pruebas que requieren PostgreSQL:
 uv run pytest -m db -q
 ```
 
-La prueba de integración actual solo ejecuta `SELECT 1` y consulta
-`current_database()` y `current_user`; no modifica el esquema ni inserta datos
-de negocio. No crea tablas ni esquemas temporales, así que no requiere limpieza.
-Si en el futuro se añaden objetos temporales, deberán eliminarse en un
-`finally` o en el teardown de un fixture aunque la prueba falle.
+Las pruebas `db` aplican las migraciones de Alembic, insertan datos sintéticos
+y prueban los servicios sobre PostgreSQL. La prueba de migraciones elimina y
+recrea el esquema `public` de la base de pruebas para validar `upgrade` y
+`downgrade`, y lo deja en `head`. Por eso `TEST_DATABASE_URL` debe apuntar
+siempre a una base desechable; nunca a producción ni a una base compartida.
+
+Los fixtures limpian las tablas de negocio antes de cada prueba y restauran el
+esquema aunque la prueba falle. Los tests automatizados utilizan datos sintéticos
+y dobles (mocks) para OCR/LLM; no dependen de archivos en `tests/samples/`.
 
 No guardes `TEST_DATABASE_URL` con contraseña ni `.env.test` en archivos
 versionados.
@@ -155,8 +160,7 @@ versionados.
 - `app/models/`, `app/schemas/`, `app/repositories/`: persistencia y contrato.
 - `app/services/`: OCR, LLM, normalización y orquestación.
 - `app/db/`: sesión, guardas de pruebas y migraciones de Alembic.
-- `tests/`: pruebas unitarias y de integración; `tests/samples/` contiene
-  documentos de ejemplo.
+- `tests/`: pruebas unitarias y de integración con datos sintéticos y dobles; las muestras locales no forman parte del repositorio.
 
 ## Calidad
 

@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+
+from app.core.invoice_status import normalize_status
 
 
 class InvoiceResponse(BaseModel):
@@ -9,10 +11,14 @@ class InvoiceResponse(BaseModel):
     id: int
 
     invoice_number: str | None
-    supplier_name: str |None
-    supplier_nit: str | None
+    supplier_name: str | None
+    supplier_nit: str | None = Field(
+        validation_alias=AliasChoices("supplier_nit", "tax_id"),
+    )
 
-    issue_date: str | None
+    issue_date: str | None = Field(
+        validation_alias=AliasChoices("display_issue_date", "issue_date"),
+    )
 
     subtotal: float | None
     tax: float | None
@@ -49,3 +55,11 @@ class InvoiceUpdate(BaseModel):
         default=None,
         description="Carpeta de Google Drive.",
     )
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+
+        return normalize_status(value)

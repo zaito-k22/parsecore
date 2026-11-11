@@ -1,4 +1,5 @@
 import re
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -97,6 +98,41 @@ def _text(value: Any) -> str | None:
     return text or None
 
 
+def _country(value: Any) -> str | None:
+    text = _text(value)
+
+    if text is None:
+        return None
+
+    country = text.upper()
+
+    return country if len(country) == 2 else None
+
+
+def _currency(value: Any) -> str | None:
+    text = _text(value)
+
+    if text is None:
+        return None
+
+    currency = text.upper()
+
+    return currency if len(currency) == 3 else None
+
+
+def parse_issue_date(value: str | None) -> date | None:
+    if value is None:
+        return None
+
+    for date_format in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+        try:
+            return datetime.strptime(value, date_format).date()
+        except ValueError:
+            continue
+
+    return None
+
+
 def to_invoice_fields(document: dict) -> dict:
     """
     Extrae del JSON del LLM los campos que se guardan como columnas.
@@ -107,17 +143,17 @@ def to_invoice_fields(document: dict) -> dict:
     invoice = _section(document, "invoice")
     amounts = _section(document, "amounts")
 
-    def amount(key: str) -> float | None:
-        parsed = parse_amount(amounts.get(key))
-
-        return float(parsed) if parsed is not None else None
+    issue_date_raw = _text(invoice.get("date"))
 
     return {
         "supplier_name": _text(supplier.get("name")),
-        "supplier_nit": _text(supplier.get("tax_id")),
+        "tax_id": _text(supplier.get("tax_id")),
+        "tax_id_country": _country(supplier.get("country")),
         "invoice_number": _text(invoice.get("number")),
-        "issue_date": _text(invoice.get("date")),
-        "subtotal": amount("subtotal"),
-        "tax": amount("tax_total"),
-        "total": amount("total"),
+        "currency": _currency(invoice.get("currency")),
+        "issue_date": parse_issue_date(issue_date_raw),
+        "issue_date_raw": issue_date_raw,
+        "subtotal": parse_amount(amounts.get("subtotal")),
+        "tax": parse_amount(amounts.get("tax_total")),
+        "total": parse_amount(amounts.get("total")),
     }
