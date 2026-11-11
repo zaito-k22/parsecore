@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -39,19 +40,22 @@ def test_parse_amount_invalid(raw):
 
 def test_to_invoice_fields_complete():
     document = {
-        "supplier": {"name": " VicVal SI ", "tax_id": "B30142516"},
-        "invoice": {"number": "2017-0002", "date": "23/06/2017"},
+        "supplier": {"name": " VicVal SI ", "tax_id": "B30142516", "country": "es"},
+        "invoice": {"number": "2017-0002", "date": "23/06/2017", "currency": "eur"},
         "amounts": {"subtotal": "201,65", "tax_total": "42,35", "total": "243,80"},
     }
 
     assert to_invoice_fields(document) == {
         "supplier_name": "VicVal SI",
-        "supplier_nit": "B30142516",
+        "tax_id": "B30142516",
+        "tax_id_country": "ES",
         "invoice_number": "2017-0002",
-        "issue_date": "23/06/2017",
-        "subtotal": 201.65,
-        "tax": 42.35,
-        "total": 243.8,
+        "currency": "EUR",
+        "issue_date": date(2017, 6, 23),
+        "issue_date_raw": "23/06/2017",
+        "subtotal": Decimal("201.65"),
+        "tax": Decimal("42.35"),
+        "total": Decimal("243.80"),
     }
 
 
@@ -68,7 +72,7 @@ def test_to_invoice_fields_tolerates_bad_structure(document):
     fields = to_invoice_fields(document)
 
     assert set(fields) == {
-        "supplier_name", "supplier_nit", "invoice_number",
-        "issue_date", "subtotal", "tax", "total",
+        "supplier_name", "tax_id", "tax_id_country", "invoice_number",
+        "currency", "issue_date", "issue_date_raw", "subtotal", "tax", "total",
     }
     assert all(value is None for value in fields.values())
