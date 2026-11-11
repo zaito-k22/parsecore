@@ -49,6 +49,7 @@ pip-wheel-metadata/
 .coverage
 .coverage.*
 htmlcov/
+tests/samples/
 
 # ==========================================
 # Type checking
